@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>Padel Court Booking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: club noticeboard — header band, day strip, court-slot grid; admin desk as a stacked queue */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --fg:#13212f; --muted:#5b6b7a; --line:#dbe2e8;
+  --court:#1d4f86; --court-ink:#ffffff; --court-soft:#e3ecf6;
+  --ball:#e8c547; --ball-ink:#2a2304;
+  --ok:#1f7a4d; --ok-soft:#e1f2e8; --warn:#9a6400; --warn-soft:#fbefd4; --bad:#b4372b; --bad-soft:#f8e2df;
+  --shadow:0 1px 2px rgba(19,33,47,.06),0 4px 16px rgba(19,33,47,.06);
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e161f; --surface:#16212d; --fg:#e6edf3; --muted:#93a3b2; --line:#2a3846;
+  --court:#4f8fd6; --court-ink:#07121d; --court-soft:#1a2c40;
+  --ball:#e8c547; --ball-ink:#2a2304;
+  --ok:#5cc58f; --ok-soft:#173326; --warn:#e3b04f; --warn-soft:#352a12; --bad:#ef7b6f; --bad-soft:#3a1d1a;
+  --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e161f; --surface:#16212d; --fg:#e6edf3; --muted:#93a3b2; --line:#2a3846;
+  --court:#4f8fd6; --court-ink:#07121d; --court-soft:#1a2c40;
+  --ball:#e8c547; --ball-ink:#2a2304;
+  --ok:#5cc58f; --ok-soft:#173326; --warn:#e3b04f; --warn-soft:#352a12; --bad:#ef7b6f; --bad-soft:#3a1d1a;
+  --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:960px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--court);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+header.top{background:var(--court);color:var(--court-ink)}
+header.top .wrap{display:flex;align-items:center;gap:14px;padding-block:18px;flex-wrap:wrap}
+.logo{width:52px;height:52px;border-radius:10px;background:var(--surface);display:grid;place-items:center;overflow:hidden;flex:none}
+.logo img{width:100%;height:100%;object-fit:contain}
+.logo .mono{font-family:var(--f-display);font-weight:700;font-size:22px;color:var(--court)}
+.brand{min-width:0;flex:1}
+.brand small{display:block;opacity:.85;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:30px;line-height:1.05;letter-spacing:.01em;text-wrap:balance}
+.tabs{display:flex;gap:4px;background:rgba(255,255,255,.14);padding:4px;border-radius:999px}
+.tabs button{border:0;background:transparent;color:inherit;padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:600;font-size:14px}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--court)}
+.tabs .count{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--ball);color:var(--ball-ink);font-size:12px}
+
+.banner{margin-top:16px;padding:10px 14px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:14px}
+h2{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.02em;margin:0}
+.sec{margin-top:22px;display:grid;gap:12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.muted{color:var(--muted)}
+
+.days{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.day{flex:none;width:64px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 0;text-align:center;cursor:pointer}
+.day .dw{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.day .dn{font-family:var(--f-display);font-size:26px;font-weight:700;line-height:1.1}
+.day .dm{font-size:12px;color:var(--muted)}
+.day[aria-pressed="true"]{background:var(--court);border-color:var(--court);color:var(--court-ink)}
+.day[aria-pressed="true"] .dw,.day[aria-pressed="true"] .dm{color:inherit;opacity:.85}
+.day.we:not([aria-pressed="true"]) .dw{color:var(--court)}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.slot{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;text-align:left;display:grid;gap:2px;min-height:76px}
+.slot .t{font-family:var(--f-display);font-weight:700;font-size:22px;line-height:1}
+.slot .s{font-size:13px}
+.slot.free{cursor:pointer;border-color:var(--court);box-shadow:inset 3px 0 0 var(--court)}
+.slot.free:hover{background:var(--court-soft)}
+.slot.free .s{color:var(--court);font-weight:600}
+.slot.pending{background:var(--warn-soft);border-color:transparent}.slot.pending .s{color:var(--warn)}
+.slot.confirmed{background:var(--bg);border-style:dashed}.slot.confirmed .s{color:var(--muted)}
+.slot.blocked{background:var(--bg);border-style:dashed}.slot.blocked .s{color:var(--muted)}
+.slot.past{opacity:.45}
+.slot.adminable{cursor:pointer}
+.empty{padding:28px;text-align:center;border:1px dashed var(--line);border-radius:12px;color:var(--muted)}
+
+.info{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.card h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.card p{margin:0}
+.price{font-family:var(--f-display);font-size:30px;font-weight:700}
+
+/* sheet */
+.overlay{position:fixed;inset:0;background:rgba(10,18,28,.55);display:flex;align-items:flex-end;justify-content:center;z-index:20;padding:16px}
+@media (min-width:640px){.overlay{align-items:center}}
+.sheet{background:var(--surface);color:var(--fg);border-radius:16px;width:100%;max-width:520px;max-height:calc(100% - 8px);overflow:auto;box-shadow:var(--shadow);padding:20px;display:grid;gap:16px}
+.sheet .head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.x{border:0;background:var(--bg);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;flex:none}
+.step{display:grid;gap:10px}
+.step .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--court);font-weight:700}
+.pay{display:grid;gap:8px;background:var(--court-soft);border-radius:12px;padding:14px}
+.kv{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.kv b{font-variant-numeric:tabular-nums;word-break:break-all}
+.copy{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}
+label.f{display:grid;gap:4px;font-size:14px;font-weight:500}
+input[type=text],input[type=tel],input[type=email],input[type=number],input[type=url]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.drop{border:1.5px dashed var(--line);border-radius:12px;padding:14px;text-align:center;cursor:pointer;display:grid;gap:8px;justify-items:center}
+.drop img{max-height:180px;border-radius:8px}
+.btn{border:0;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer;background:var(--court);color:var(--court-ink);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn.alt{background:var(--bg);color:var(--fg);border:1px solid var(--line)}
+.btn.ok{background:var(--ok);color:#fff}
+.btn.bad{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+.btn.wa{background:#1f9d55;color:#fff}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.err{color:var(--bad);font-size:14px}
+.done{text-align:center;display:grid;gap:8px;justify-items:center;padding:8px 0}
+.tick{width:56px;height:56px;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:grid;place-items:center;font-size:28px}
+
+/* admin */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;cursor:pointer;font-size:14px}
+.filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.queue{display:grid;gap:10px}
+.bk{display:grid;grid-template-columns:88px 1fr;gap:14px;align-items:start}
+.bk .rc{width:88px;height:110px;border-radius:8px;background:var(--bg);overflow:hidden;border:1px solid var(--line);cursor:zoom-in;padding:0}
+.bk .rc img{width:100%;height:100%;object-fit:cover}
+.bk .body{display:grid;gap:6px;min-width:0}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.pill.pending{background:var(--warn-soft);color:var(--warn)}
+.pill.confirmed{background:var(--ok-soft);color:var(--ok)}
+.pill.rejected{background:var(--bad-soft);color:var(--bad)}
+.pill.blocked{background:var(--court-soft);color:var(--court)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.acts .btn{padding:8px 12px;font-size:14px}
+.msg{font-size:13px;background:var(--bg);border-radius:8px;padding:8px 10px;white-space:pre-wrap}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.zoom img{width:100%;border-radius:10px}
+@media (max-width:420px){.bk{grid-template-columns:1fr}.bk .rc{width:100%;height:160px}}
+@media (prefers-reduced-motion:no-preference){.slot,.day,.btn{transition:background .15s,border-color .15s}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="logo" id="logo"><span class="mono">P</span></div>
+    <div class="brand"><small id="schoolName">Your School</small><h1>Padel Court Booking</h1></div>
+    <div class="tabs" role="tablist" id="tabs" hidden>
+      <button role="tab" id="tab-book" aria-selected="true">Book</button>
+      <button role="tab" id="tab-admin" aria-selected="false">Admin<span class="count num" id="pendCount" hidden></span></button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="banner" id="demoBanner" hidden>Demo mode: bookings here are examples and are not saved.</div>
+
+  <section id="view-book">
+    <div class="sec">
+      <div class="row"><h2>Pick a day</h2><span class="muted" id="monthLbl"></span></div>
+      <div class="days" id="days"></div>
+    </div>
+    <div class="sec">
+      <div class="row"><h2 id="dayTitle">Times</h2>
+        <div class="legend"><span style="--c:var(--court)">Available</span><span style="--c:var(--warn)">Awaiting payment check</span><span style="--c:var(--line)">Booked</span></div>
+      </div>
+      <div class="slots" id="slots"></div>
+    </div>
+    <div class="sec info" id="infoCards"></div>
+  </section>
+
+  <section id="view-admin" hidden>
+    <div class="sec stats" id="stats"></div>
+    <div class="sec">
+      <div class="row"><h2>Bookings</h2>
+        <div class="filters" id="filters">
+          <button data-f="pending" aria-pressed="true">To check</button>
+          <button data-f="upcoming" aria-pressed="false">Upcoming</button>
+          <button data-f="all" aria-pressed="false">All</button>
+        </div>
+      </div>
+      <div class="queue" id="queue"></div>
+    </div>
+    <div class="sec">
+      <h2>Settings</h2>
+      <form class="card" id="settingsForm" style="display:grid;gap:12px">
+        <div class="grid2">
+          <label class="f">School name<input type="text" id="s-name"></label>
+          <label class="f">Logo<input type="file" id="s-logo" accept="image/*"></label>
+          <label class="f">Price per hour, weekdays (HK$)<input type="number" id="s-pwd" min="0" step="10"></label>
+          <label class="f">Price per hour, weekends (HK$)<input type="number" id="s-pwe" min="0" step="10"></label>
+          <label class="f">FPS ID or phone<input type="text" id="s-fps"></label>
+          <label class="f">PayMe link<input type="url" id="s-payme" placeholder="https://payme.hsbc/…"></label>
+          <label class="f">Account name players will see<input type="text" id="s-acct"></label>
+          <label class="f">Court access note (sent in WhatsApp)<input type="text" id="s-access"></label>
+        </div>
+        <p class="muted" style="margin:0;font-size:14px">Opening hours: weekdays 6–8am and 5–10pm, weekends 8am–10pm, in 1-hour slots.</p>
+        <div class="acts"><button class="btn" type="submit">Save settings</button><span class="muted" id="savedMsg" hidden>Saved</span></div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" id="overlay" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+
+<script>
+const HOURS = { weekday:[6,7,17,18,19,20,21], weekend:[8,9,10,11,12,13,14,15,16,17,18,19,20,21] };
+const DAYS_AHEAD = 14;
+const DEFAULTS = { name:"Your School", priceWeekday:300, priceWeekend:350, fps:"", payme:"", acct:"", access:"Please arrive 5 minutes early and check in at the security desk.", logo:"" };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parseYmd = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y,m-1,d); };
+const isWeekend = d => d.getDay()===0 || d.getDay()===6;
+const hourLbl = h => { const ap = h<12?"am":"pm"; const hh = h%12||12; return hh+ap; };
+const slotLbl = h => hourLbl(h)+" – "+hourLbl(h+1);
+const fmtDate = s => parseYmd(s).toLocaleDateString("en-HK",{weekday:"short",day:"numeric",month:"short"});
+const priceFor = s => isWeekend(parseYmd(s)) ? +state.settings.priceWeekend : +state.settings.priceWeekday;
+const refFor = (date,h) => "PADEL-"+date.slice(5).replace("-","")+"-"+pad(h);
+const idFor = (date,h) => date+"_"+pad(h);
+function waNumber(p){ let d = String(p||"").replace(/\D/g,""); if (d.length===8) d = "852"+d; return d; }
+
+const state = { mode:"loading", admin:false, bookings:{}, settings:{...DEFAULTS}, day: ymd(new Date()), view:"book", filter:"pending" };
+
+/* ---------- storage: live db, or in-memory demo ---------- */
+let store;
+function memStore(){
+  const subs = { b:[], s:[] }; const data = { b:{}, s:{...DEFAULTS, fps:"9123 4567", acct:"School Sports Fund (example)"} };
+  const t = new Date(); const d1 = ymd(new Date(t.getFullYear(),t.getMonth(),t.getDate()+1)); const d2 = ymd(new Date(t.getFullYear(),t.getMonth(),t.getDate()+2));
+  const ex = (date,h,status,name,phone) => { const blk = status==="blocked"; data.b[idFor(date,h)] = { date, hour:h, status, name, phone, email:"", ref:blk?"":refFor(date,h), amount:blk?0:priceFor0(date), receipt:"", createdAt:Date.now(), example:true }; };
+  function priceFor0(s){ return isWeekend(parseYmd(s)) ? DEFAULTS.priceWeekend : DEFAULTS.priceWeekday; }
+  ex(d1,19,"confirmed","Example: Chan family","91234567");
+  ex(d1,20,"pending","Example: Mrs Wong","98765432");
+  ex(d2,7,"blocked","School PE lesson","");
+  ex(d2,18,"pending","Example: Mr Lee","61234567");
+  const emit = () => { subs.b.forEach(f=>f({...data.b})); subs.s.forEach(f=>f({...data.s})); };
+  return {
+    onBookings(f){ subs.b.push(f); f({...data.b}); },
+    onSettings(f){ subs.s.push(f); f({...data.s}); },
+    async get(id){ return data.b[id] || null; },
+    async set(id,v){ data.b[id] = v; emit(); },
+    async update(id,p){ data.b[id] = {...data.b[id], ...p}; emit(); },
+    async saveSettings(v){ data.s = {...data.s, ...v}; emit(); }
+  };
+}
+function dbStore(db){
+  return {
+    onBookings(f){ db.collection("bookings").onSnapshot(snap => { const o={}; snap.docs.forEach(d=>{ if(d.exists) o[d.id]=d.data(); }); f(o); }, e => console.warn("bookings", e)); },
+    onSettings(f){ db.doc("config/settings").onSnapshot(d => f({...DEFAULTS, ...(d.exists?d.data():{})}), e => console.warn("settings", e)); },
+    async get(id){ const d = await db.doc("bookings/"+id).get(); return d.exists ? d.data() : null; },
+    async set(id,v){ await db.doc("bookings/"+id).set(v); },
+    async update(id,p){ await db.doc("bookings/"+id).update(p); },
+    async saveSettings(v){ const ref = db.doc("config/settings"); const cur = await ref.get(); await ref.set({...(cur.exists?cur.data():{}), ...v}); }
+  };
+}
+
+async function boot(){
+  let db = null, user = null;
+  try { if (window.claude?.use) { [db, user] = await Promise.all([claude.use("db"), claude.use("user")]); } } catch(e){}
+  if (db){
+    store = dbStore(db); state.mode = "live";
+    try { state.admin = user ? (await user.isOwner()) || (await user.canEdit()) : false; } catch(e){ state.admin = false; }
+  } else {
+    store = memStore(); state.mode = "demo"; state.admin = true;
+  }
+  $("#demoBanner").hidden = state.mode !== "demo";
+  $("#tabs").hidden = !state.admin;
+  store.onSettings(s => { state.settings = s; renderHeader(); render(); fillSettings(); });
+  store.onBookings(b => { state.bookings = b; render(); });
+}
+const fallbackTimer = setTimeout(() => { if (!store){ store = memStore(); state.mode="demo"; state.admin=true; $("#demoBanner").hidden=false; $("#tabs").hidden=false; store.onSettings(s=>{state.settings=s;renderHeader();render();fillSettings();}); store.onBookings(b=>{state.bookings=b;render();}); } }, 12000);
+boot().then(()=>clearTimeout(fallbackTimer));
+
+/* ---------- slot status ---------- */
+function slotStatus(date,h){
+  const b = state.bookings[idFor(date,h)];
+  const start = parseYmd(date); start.setHours(h);
+  if (start.getTime() < Date.now()) return { st:"past", b };
+  if (!b || b.status==="rejected" || b.status==="cancelled") return { st:"free", b:null };
+  return { st:b.status, b };
+}
+
+/* ---------- render ---------- */
+function renderHeader(){
+  const s = state.settings;
+  $("#schoolName").textContent = s.name || "Your School";
+  $("#logo").innerHTML = s.logo ? `<img alt="${esc(s.name)} logo" src="${s.logo}">` : `<span class="mono">${esc((s.name||"P").trim()[0]||"P")}</span>`;
+}
+function render(){
+  $("#view-book").hidden = state.view!=="book";
+  $("#view-admin").hidden = state.view!=="admin";
+  $("#tab-book").setAttribute("aria-selected", state.view==="book");
+  $("#tab-admin").setAttribute("aria-selected", state.view==="admin");
+  const pend = Object.values(state.bookings).filter(b=>b.status==="pending").length;
+  $("#pendCount").hidden = !pend; $("#pendCount").textContent = pend;
+  renderDays(); renderSlots(); renderInfo(); if (state.admin) renderAdmin();
+}
+function renderDays(){
+  const t = new Date(); let html = "";
+  for (let i=0;i<DAYS_AHEAD;i++){
+    const d = new Date(t.getFullYear(),t.getMonth(),t.getDate()+i); const k = ymd(d);
+    html += `<button class="day ${isWeekend(d)?"we":""}" data-day="${k}" aria-pressed="${k===state.day}">
+      <div class="dw">${i===0?"Today":d.toLocaleDateString("en-HK",{weekday:"short"})}</div>
+      <div class="dn num">${d.getDate()}</div><div class="dm">${d.toLocaleDateString("en-HK",{month:"short"})}</div></button>`;
+  }
+  $("#days").innerHTML = html;
+  $("#monthLbl").textContent = parseYmd(state.day).toLocaleDateString("en-HK",{month:"long",year:"numeric"});
+}
+function renderSlots(){
+  const d = parseYmd(state.day); const hours = isWeekend(d) ? HOURS.weekend : HOURS.weekday;
+  $("#dayTitle").textContent = d.toLocaleDateString("en-HK",{weekday:"long",day:"numeric",month:"long"});
+  const price = priceFor(state.day);
+  const html = hours.map(h => {
+    const { st, b } = slotStatus(state.day,h);
+    const label = { free:`Available · HK$${price}`, pending:"Awaiting payment check", confirmed:"Booked", blocked:"School use", past:"Past" }[st] || st;
+    const extra = state.admin && b && st!=="past" ? `<span class="s muted">${esc(b.name)}</span>` : "";
+    const clickable = st==="free" || (state.admin && st!=="past");
+    return `<button class="slot ${st} ${state.admin&&st!=="free"&&st!=="past"?"adminable":""}" data-h="${h}" ${clickable?"":"disabled"}>
+      <span class="t num">${hourLbl(h)}</span><span class="s">${label}</span>${extra}</button>`;
+  }).join("");
+  $("#slots").innerHTML = html || `<div class="empty">No court times on this day.</div>`;
+}
+function renderInfo(){
+  const s = state.settings;
+  $("#infoCards").innerHTML = `
+    <div class="card"><h3>Price per hour</h3><p><span class="price num">HK$${esc(s.priceWeekday)}</span> <span class="muted">weekdays</span></p><p><span class="price num">HK$${esc(s.priceWeekend)}</span> <span class="muted">weekends</span></p></div>
+    <div class="card"><h3>Opening hours</h3><p>Mon–Fri: 6–8am and 5–10pm</p><p>Sat–Sun: 8am–10pm</p><p class="muted" style="margin-top:6px">Court is reserved for students during school hours.</p></div>
+    <div class="card"><h3>How it works</h3><p>1. Pick a time.<br>2. Pay by FPS or PayMe with your booking reference.<br>3. Upload your receipt.<br>4. We confirm on WhatsApp.</p></div>`;
+}
+
+/* ---------- booking sheet ---------- */
+function openSheet(html){ $("#sheet").innerHTML = html; $("#overlay").hidden = false; }
+function closeSheet(){ $("#overlay").hidden = true; $("#sheet").innerHTML = ""; }
+$("#overlay").addEventListener("click", e => { if (e.target.id==="overlay" || e.target.closest("[data-close]")) closeSheet(); });
+document.addEventListener("keydown", e => { if (e.key==="Escape" && !$("#overlay").hidden) closeSheet(); });
+
+let receiptData = "";
+function openBooking(date,h){
+  const s = state.settings; const ref = refFor(date,h); const price = priceFor(date); receiptData = "";
+  const fpsRow = s.fps ? `<div class="kv"><span>FPS</span><span><b>${esc(s.fps)}</b> <button type="button" class="copy" data-copy="${esc(s.fps)}">Copy</button></span></div>` : "";
+  const paymeRow = s.payme ? `<div class="kv"><span>PayMe</span><a class="btn alt" style="padding:6px 12px" href="${esc(s.payme)}" target="_blank" rel="noopener">Open PayMe link</a></div>` : "";
+  const noPay = !s.fps && !s.payme ? `<p class="err" style="margin:0">Payment details have not been set up yet. Please contact the school.</p>` : "";
+  openSheet(`
+    <div class="head"><div><div class="lbl" style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Padel court</div><h2>${fmtDate(date)}, ${slotLbl(h)}</h2></div><button class="x" data-close aria-label="Close">×</button></div>
+    <div class="step"><div class="lbl">Step 1 · Pay</div>
+      <div class="pay">
+        <div class="kv"><span>Amount</span><b class="price num" style="font-size:26px">HK$${price}</b></div>
+        ${s.acct?`<div class="kv"><span>Pay to</span><b>${esc(s.acct)}</b></div>`:""}
+        ${fpsRow}${paymeRow}${noPay}
+        <div class="kv"><span>Put this in the payment note</span><span><b>${ref}</b> <button type="button" class="copy" data-copy="${ref}">Copy</button></span></div>
+      </div>
+    </div>
+    <form class="step" id="bookForm"><div class="lbl">Step 2 · Your details and receipt</div>
+      <label class="f">Full name<input type="text" id="b-name" required autocomplete="name"></label>
+      <label class="f">WhatsApp number<input type="tel" id="b-phone" required placeholder="e.g. 9123 4567" autocomplete="tel"></label>
+      <label class="f">Email (optional)<input type="email" id="b-email" autocomplete="email"></label>
+      <label class="drop" id="dropZone"><input type="file" id="b-receipt" accept="image/*" hidden><span id="dropTxt"><b>Upload payment screenshot</b><br><span class="muted">Tap to choose a photo</span></span><img id="rcPrev" alt="Receipt preview" hidden></label>
+      <p class="err" id="bErr" hidden></p>
+      <button class="btn" type="submit" id="bSubmit">Send booking request</button>
+      <p class="muted" style="margin:0;font-size:13px">Your slot is held while we check the payment. You will get a WhatsApp message once it is confirmed.</p>
+    </form>
+    ${state.admin?`<div class="acts" style="border-top:1px solid var(--line);padding-top:12px"><span class="muted" style="font-size:13px;align-self:center">Admin:</span><button class="btn alt" type="button" id="blockBtn">Block this hour for school use</button></div>`:""}`);
+  if (state.admin) $("#blockBtn").onclick = async () => { await store.set(idFor(date,h),{date,hour:h,status:"blocked",name:"School use",phone:"",email:"",ref:"",amount:0,receipt:"",createdAt:Date.now()}); closeSheet(); };
+  $("#b-receipt").addEventListener("change", async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try { receiptData = await shrink(f, 1000, 180000); $("#rcPrev").src = receiptData; $("#rcPrev").hidden = false; $("#dropTxt").innerHTML = `<span class="muted">Tap to change photo</span>`; }
+    catch(err){ showErr("That file could not be read. Please upload a photo or screenshot."); }
+  });
+  $("#bookForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const name = $("#b-name").value.trim(), phone = $("#b-phone").value.trim(), email = $("#b-email").value.trim();
+    if (!name || waNumber(phone).length < 8) return showErr("Please enter your name and a WhatsApp number.");
+    if (!receiptData) return showErr("Please upload your payment screenshot.");
+    $("#bSubmit").disabled = true; $("#bSubmit").textContent = "Sending…";
+    const id = idFor(date,h);
+    try {
+      const cur = await store.get(id);
+      if (cur && !["rejected","cancelled"].includes(cur.status)) { showErr("Sorry, someone has just booked this time. Please choose another slot."); $("#bSubmit").disabled=false; $("#bSubmit").textContent="Send booking request"; return; }
+      await store.set(id, { date, hour:h, status:"pending", name, phone, email, ref, amount:price, receipt:receiptData, createdAt:Date.now() });
+      openSheet(`<div class="done"><div class="tick">✓</div><h2>Request received</h2>
+        <p class="muted" style="margin:0">${fmtDate(date)}, ${slotLbl(h)} · Ref <b>${ref}</b></p>
+        <p style="margin:0">We will check your payment and send a WhatsApp confirmation to ${esc(phone)}.</p>
+        <button class="btn" data-close style="margin-top:8px">Done</button></div>`);
+    } catch(err){
+      showErr(err && err.code==="invalid_argument" ? "This booking page is not open for bookings from your account yet." : "The booking could not be sent. Please try again.");
+      $("#bSubmit").disabled=false; $("#bSubmit").textContent="Send booking request";
+    }
+  });
+}
+function showErr(t){ const el = $("#bErr"); el.textContent = t; el.hidden = false; }
+function shrink(file, maxDim, maxBytes){
+  return new Promise((res,rej) => {
+    const r = new FileReader();
+    r.onload = () => { const img = new Image(); img.onload = () => {
+      const k = Math.min(1, maxDim/Math.max(img.width,img.height)); const c = document.createElement("canvas");
+      c.width = Math.round(img.width*k); c.height = Math.round(img.height*k);
+      const x = c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0,c.width,c.height);
+      let q = .7, out = c.toDataURL("image/jpeg",q);
+      while (out.length > maxBytes && q > .25){ q -= .1; out = c.toDataURL("image/jpeg",q); }
+      res(out);
+    }; img.onerror = rej; img.src = r.result; };
+    r.onerror = rej; r.readAsDataURL(file);
+  });
+}
+
+/* ---------- admin ---------- */
+function confirmMsg(b){
+  const s = state.settings;
+  return `Hi ${b.name}, your padel court booking at ${s.name} is confirmed.\n\n${fmtDate(b.date)}, ${slotLbl(b.hour)}\nRef: ${b.ref}\nPaid: HK$${b.amount}\n\n${s.access||""}\nSee you on court!`;
+}
+function rejectMsg(b){
+  return `Hi ${b.name}, we could not match your payment for the padel court booking on ${fmtDate(b.date)}, ${slotLbl(b.hour)} (Ref ${b.ref}). Please reply here with your payment details so we can sort it out.`;
+}
+const waLink = (phone,msg) => `https://wa.me/${waNumber(phone)}?text=${encodeURIComponent(msg)}`;
+
+function renderAdmin(){
+  const all = Object.entries(state.bookings).map(([id,b])=>({id,...b}));
+  const now = Date.now(); const startOf = b => { const d = parseYmd(b.date); d.setHours(b.hour); return d.getTime(); };
+  const mStart = new Date(); mStart.setDate(1); const mKey = ymd(mStart).slice(0,7);
+  const conf = all.filter(b=>b.status==="confirmed");
+  const monthRev = conf.filter(b=>b.date.slice(0,7)===mKey).reduce((a,b)=>a+(+b.amount||0),0);
+  const upcoming = conf.filter(b=>startOf(b)>=now).length;
+  const pend = all.filter(b=>b.status==="pending").length;
+  $("#stats").innerHTML = `
+    <div class="card"><h3>To check</h3><div class="price num">${pend}</div></div>
+    <div class="card"><h3>Upcoming confirmed</h3><div class="price num">${upcoming}</div></div>
+    <div class="card"><h3>Revenue this month</h3><div class="price num">HK$${monthRev.toLocaleString("en-HK")}</div></div>`;
+  let list = all;
+  if (state.filter==="pending") list = all.filter(b=>b.status==="pending");
+  if (state.filter==="upcoming") list = all.filter(b=>startOf(b)>=now && ["confirmed","blocked"].includes(b.status));
+  list.sort((a,b)=> state.filter==="all" ? (b.createdAt||0)-(a.createdAt||0) : startOf(a)-startOf(b));
+  document.querySelectorAll("#filters button").forEach(x=>x.setAttribute("aria-pressed", x.dataset.f===state.filter));
+  if (!list.length){ $("#queue").innerHTML = `<div class="empty">${state.filter==="pending"?"No bookings waiting for a payment check.":"No bookings yet. New requests will appear here."}</div>`; return; }
+  $("#queue").innerHTML = list.map(b => {
+    const rc = b.receipt ? `<button class="rc" data-zoom="${b.id}" aria-label="View receipt"><img src="${b.receipt}" alt=""></button>` : `<div class="rc" style="display:grid;place-items:center;font-size:12px;color:var(--muted);text-align:center">No receipt</div>`;
+    let acts = "";
+    if (b.status==="pending") acts = `<button class="btn ok" data-act="confirm" data-id="${b.id}">Confirm</button><button class="btn bad" data-act="reject" data-id="${b.id}">Reject</button>`;
+    if (b.status==="confirmed") acts = `<a class="btn wa" href="${waLink(b.phone,confirmMsg(b))}" target="_blank" rel="noopener">Send WhatsApp confirmation</a><button class="btn alt" data-act="copy" data-msg="${esc(confirmMsg(b))}">Copy message</button><button class="btn bad" data-act="cancel" data-id="${b.id}">Cancel</button>`;
+    if (b.status==="rejected") acts = `<a class="btn wa" href="${waLink(b.phone,rejectMsg(b))}" target="_blank" rel="noopener">WhatsApp the player</a>`;
+    if (b.status==="blocked") acts = `<button class="btn alt" data-act="cancel" data-id="${b.id}">Unblock</button>`;
+    return `<div class="card bk">${rc}<div class="body">
+      <div class="row"><b>${fmtDate(b.date)}, ${slotLbl(b.hour)}</b><span class="pill ${b.status}">${b.status==="pending"?"To check":b.status}</span></div>
+      <div>${esc(b.name)}${b.phone?` · <span class="num">${esc(b.phone)}</span>`:""}${b.email?` · ${esc(b.email)}`:""}</div>
+      ${b.ref?`<div class="muted num">Ref ${esc(b.ref)} · HK$${esc(b.amount)}</div>`:""}
+      ${b.status==="pending"?`<div class="muted" style="font-size:13px">Check your FPS / PayMe account for HK$${esc(b.amount)} with note ${esc(b.ref)}.</div>`:""}
+      <div class="acts">${acts}</div></div></div>`;
+  }).join("");
+}
+async function act(kind,id){
+  try {
+    if (kind==="confirm") await store.update(id,{status:"confirmed", confirmedAt:Date.now()});
+    if (kind==="reject") await store.update(id,{status:"rejected"});
+    if (kind==="cancel") await store.update(id,{status:"cancelled"});
+  } catch(e){ console.warn(e); }
+}
+function openAdminSlot(date,h){
+  const { st, b } = slotStatus(date,h);
+  if (st==="free"){
+    openSheet(`<div class="head"><h2>${fmtDate(date)}, ${slotLbl(h)}</h2><button class="x" data-close aria-label="Close">×</button></div>
+      <p style="margin:0">This time is free. You can book it for a player, or block it for school use.</p>
+      <div class="acts"><button class="btn" data-adm="book">Book for a player</button><button class="btn alt" data-adm="block">Block for school use</button></div>`);
+    $("#sheet").querySelector('[data-adm="book"]').onclick = () => openBooking(date,h);
+    $("#sheet").querySelector('[data-adm="block"]').onclick = async () => { await store.set(idFor(date,h),{date,hour:h,status:"blocked",name:"School use",phone:"",email:"",ref:"",amount:0,receipt:"",createdAt:Date.now()}); closeSheet(); };
+    return;
+  }
+  state.view="admin"; state.filter = st==="pending"?"pending":"upcoming"; render();
+}
+
+/* ---------- settings ---------- */
+let logoData = null;
+function fillSettings(){
+  if (!state.admin) return; const s = state.settings;
+  const set = (id,v) => { const el = $(id); if (document.activeElement!==el) el.value = v ?? ""; };
+  set("#s-name",s.name); set("#s-pwd",s.priceWeekday); set("#s-pwe",s.priceWeekend); set("#s-fps",s.fps); set("#s-payme",s.payme); set("#s-acct",s.acct); set("#s-access",s.access);
+}
+$("#s-logo").addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; try { logoData = await shrinkPng(f, 256); } catch(err){ logoData = null; } });
+function shrinkPng(file,maxDim){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>{ const img=new Image(); img.onload=()=>{ const k=Math.min(1,maxDim/Math.max(img.width,img.height)); const c=document.createElement("canvas"); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k); c.getContext("2d").drawImage(img,0,0,c.width,c.height); res(c.toDataURL("image/png")); }; img.onerror=rej; img.src=r.result; }; r.onerror=rej; r.readAsDataURL(file); }); }
+$("#settingsForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const v = { name:$("#s-name").value.trim()||DEFAULTS.name, priceWeekday:+$("#s-pwd").value||0, priceWeekend:+$("#s-pwe").value||0, fps:$("#s-fps").value.trim(), payme:$("#s-payme").value.trim(), acct:$("#s-acct").value.trim(), access:$("#s-access").value.trim() };
+  if (logoData) v.logo = logoData;
+  try { await store.saveSettings(v); $("#savedMsg").hidden=false; setTimeout(()=>$("#savedMsg").hidden=true,2000); } catch(err){ $("#savedMsg").textContent="Could not save. Please try again."; $("#savedMsg").hidden=false; }
+});
+
+/* ---------- events ---------- */
+$("#days").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (!b) return; state.day = b.dataset.day; render(); });
+$("#slots").addEventListener("click", e => { const b = e.target.closest("[data-h]"); if (!b || b.disabled) return; const h = +b.dataset.h;
+  if (slotStatus(state.day,h).st==="free") return openBooking(state.day,h);
+  if (state.admin) openAdminSlot(state.day,h); });
+/* open on the first day that still has a free hour */
+(function(){ const t = new Date(); for (let i=0;i<3;i++){ const d = new Date(t.getFullYear(),t.getMonth(),t.getDate()+i); const k = ymd(d);
+  const hrs = isWeekend(d) ? HOURS.weekend : HOURS.weekday; const s = new Date(d); s.setHours(hrs[hrs.length-1]);
+  if (s.getTime() > Date.now()){ state.day = k; break; } } })();
+$("#tab-book").onclick = () => { state.view="book"; render(); };
+$("#tab-admin").onclick = () => { state.view="admin"; render(); };
+$("#filters").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; state.filter=b.dataset.f; render(); });
+$("#queue").addEventListener("click", e => {
+  const z = e.target.closest("[data-zoom]"); if (z){ const b = state.bookings[z.dataset.zoom]; openSheet(`<div class="head"><h2>Receipt · ${esc(b.ref)}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="zoom"><img src="${b.receipt}" alt="Payment receipt"></div>`); return; }
+  const a = e.target.closest("[data-act]"); if (!a) return;
+  if (a.dataset.act==="copy"){ copyText(a.dataset.msg, a); return; }
+  act(a.dataset.act, a.dataset.id);
+});
+document.addEventListener("click", e => { const c = e.target.closest("[data-copy]"); if (c) copyText(c.dataset.copy, c); });
+function copyText(t, btn){ const old = btn.textContent; navigator.clipboard?.writeText(t).then(()=>{ btn.textContent="Copied"; setTimeout(()=>btn.textContent=old,1500); }).catch(()=>{ btn.textContent="Copy failed"; setTimeout(()=>btn.textContent=old,1500); }); }
+
+render();
+</script>
+
+</body></html>
